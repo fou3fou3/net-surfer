@@ -1,27 +1,29 @@
-import json
-import requests
+import json, requests, logging, sqlite3
 from bs4 import BeautifulSoup
 from urllib.parse import unquote, urlparse
-import logging
+from database.db import add_page_to_db
 
 USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36'
+
+conn = sqlite3.connect('net_surfer.db')
+cursor = conn.cursor()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def load_seed_list(file_name: str = 'seed_list.json') -> set[str]:
+def load_seed_list(file_name: str = 'database/seed_list.json') -> set[str]:
     with open(file_name, 'r') as json_file:
         return set(json.load(json_file)['seed_list'])
 
-def append_seed_list(updated_seed_list: set[str], file_name: str = 'seed_list.json') -> None:
+def append_seed_list(updated_seed_list: set[str], file_name: str = 'database/seed_list.json') -> None:
     with open(file_name, 'w') as json_file:
         json.dump({'seed_list': list(updated_seed_list)}, json_file, indent=4)
 
-def load_crawled_list(file_name: str = 'crawled_links_list.json') -> list[str]:
+def load_crawled_list(file_name: str = 'database/crawled_links_list.json') -> list[str]:
     with open(file_name, 'r') as json_file:
         return json.load(json_file)['crawled_links']
 
-def append_crawled_list(updated_seed_list: list[str], file_name: str = 'crawled_links_list.json') -> None:
+def append_crawled_list(updated_seed_list: list[str], file_name: str = 'database/crawled_links_list.json') -> None:
     with open(file_name, 'w') as json_file:
         json.dump({'crawled_links': updated_seed_list}, json_file, indent=4)
 
