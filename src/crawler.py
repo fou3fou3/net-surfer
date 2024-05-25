@@ -30,7 +30,6 @@ def get_page_data(parent_link: str, html_content: bytes) -> (list[str], str):
                     page_links.append(link)
                     print(f'\t|- Fetched {link}')
 
-
             else:
                 page_links.append(link)
                 print(f'\t|- Fetched {link}')
@@ -43,7 +42,7 @@ def main(allowed_urls: list[str] = []):
 
     while seed_list:
         for parent_link in list(seed_list):
-            print(f'Crawling through {parent_link}.')
+            print(f'|- Crawling through {parent_link}.')
             try:
                 resp = requests.get(parent_link, headers={'User-Agent': USER_AGENT})
                 if resp.status_code == 200:
@@ -53,29 +52,21 @@ def main(allowed_urls: list[str] = []):
                              and (True if not allowed_urls else any(link.startswith(allowed_url) for allowed_url in allowed_urls))]
 
                     add_page_to_db(conn, parent_link, html_content)
-
                     print(f'|- Done crawling through {parent_link}.\n\n')
-
-                    seed_list.remove(parent_link)
-                    crawled_links.append(parent_link)
-
-                    seed_list.update(links)
-
-                    append_crawled_list(crawled_links)
-                    append_seed_list(seed_list)
 
                 else:
                     print(f'|- Problem crawling through {parent_link}, {resp.status_code}\n\n')
 
-                    seed_list.remove(parent_link)
-                    crawled_links.append(parent_link)
-
-                    append_crawled_list(crawled_links)
-                    append_seed_list(seed_list)
-
             except requests.exceptions.RequestException as e:
                 print(f'|- There was an error sending the request: {e}\n\n')
 
+            seed_list.remove(parent_link)
+            crawled_links.append(parent_link)
+
+            seed_list.update(links)
+
+            append_crawled_list(crawled_links)
+            append_seed_list(seed_list)
 
 
 if __name__ == '__main__':
