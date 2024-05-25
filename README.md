@@ -29,7 +29,7 @@ This is a simple Python web crawler that uses the `requests` library to fetch we
 
 ## Usage
 
-1. Initialize the SQLite database and json files:
+1. Initialize the json files:
     ```bash
        python init.py
     ```
