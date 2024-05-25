@@ -31,12 +31,12 @@ This is a simple Python web crawler that uses the `requests` library to fetch we
 
 1. Initialize the SQLite database:
     ```bash
-    touch database/net_surfer.db
+    touch src/database/net_surfer.db
     ```
 
 2. Start the crawler:
     ```bash
-    python crawler.py
+    cd src && python crawler.py
     ```
     
 
