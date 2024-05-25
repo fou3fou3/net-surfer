@@ -1,4 +1,4 @@
-import requests, logging, sqlite3
+import requests, logging, sqlite3, re
 from bs4 import BeautifulSoup
 from urllib.parse import unquote, urlparse
 from database.db import add_page_to_db
@@ -25,7 +25,7 @@ def get_page_data(parent_link: str, html_content: bytes) -> (list[str], str):
             if not parsed_link.scheme in ['http', 'https']:
                 if not list(link)[0] == '#':
                     link = f"{parsed_parent_link.scheme}://{parsed_parent_link.netloc}/{link}"
-                    page_links.append(link)
+                    page_links.append(re.sub(r'(?<!:)//+', '/', link))
                     logging.info(f'Fetched {link} from {parent_link}.')
             else:
                 page_links.append(link)
