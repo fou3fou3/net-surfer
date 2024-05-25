@@ -29,9 +29,9 @@ This is a simple Python web crawler that uses the `requests` library to fetch we
 
 ## Usage
 
-1. Initialize the SQLite database:
+1. Initialize the SQLite database and json files:
     ```bash
-    touch src/database/net_surfer.db
+       python init.py
     ```
 
 2. Start the crawler:
