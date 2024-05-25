@@ -161,3 +161,6 @@ cython_debug/
 
 # sqlite3 db
 src/database/*.db
+
+# json files
+src/json_data/*.json
