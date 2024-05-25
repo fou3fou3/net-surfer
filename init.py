@@ -1,6 +1,6 @@
 import json
 
-def init_crawled_list(file_name: str = 'src/json_data/crawled_links_list.json') -> None:
+def init_crawled_list(file_name: str = 'src/json_data/crawled_links.json') -> None:
     with open(file_name, 'w') as json_file:
         json.dump({'crawled_links': []}, json_file, indent=4)
 
