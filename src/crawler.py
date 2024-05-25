@@ -33,33 +33,42 @@ def get_page_data(parent_link: str, html_content: bytes) -> (list[str], str):
 
     return page_links, html_content.decode('utf-8')
 
-def main():
+def main(allowed_urls: list[str] = []):
     crawled_links = load_crawled_list()
     seed_list = load_seed_list()
 
     while seed_list:
         for parent_link in list(seed_list):
             logging.info(f'Crawling through {parent_link}.')
-            seed_list.remove(parent_link)
 
             try:
                 resp = requests.get(parent_link, headers={'User-Agent': USER_AGENT})
                 if resp.status_code == 200:
                     links, html_content = get_page_data(parent_link, resp.content)
-                    links = [link for link in links if link not in crawled_links + list(seed_list)]
+                    links = [link for link in links
+                             if link not in crawled_links + list(seed_list)
+                             and (True if not allowed_urls else any(link.startswith(allowed_url) for allowed_url in allowed_urls))]
 
                     add_page_to_db(conn, parent_link, html_content)
 
                     logging.info(f'Done crawling through {parent_link}.')
 
-                    seed_list.update(links)
+                    seed_list.remove(parent_link)
                     crawled_links.append(parent_link)
+
+                    seed_list.update(links)
 
                     append_crawled_list(crawled_links)
                     append_seed_list(seed_list)
 
                 else:
-                    logging.warning(f'Problem crawling through {parent_link}, canceling.')
+                    logging.warning(f'Problem crawling through {parent_link}, {resp.status_code}')
+
+                    seed_list.remove(parent_link)
+                    crawled_links.append(parent_link)
+
+                    append_crawled_list(crawled_links)
+                    append_seed_list(seed_list)
 
             except requests.exceptions.RequestException as e:
                 logging.warning(f'There was an error sending the request: {e}')
