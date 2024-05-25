@@ -38,14 +38,7 @@ This is a simple Python web crawler that uses the `requests` library to fetch we
     ```bash
     python crawler.py
     ```
-
-## File Structure
-python-web-crawler/
-├── crawler.py # Main crawler script
-├── init_db.py # Script to initialize the SQLite database
-├── README.md # This README file
-└── requirements.txt # Requirements file for pip
-
+    
 
 ## Contributing
 
