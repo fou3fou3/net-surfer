@@ -160,4 +160,4 @@ cython_debug/
 .idea/
 
 # sqlite3 db
-src/database/net_surfer.db
+src/database/*.db
