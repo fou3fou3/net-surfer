@@ -1,33 +1,17 @@
-import json, requests, logging, sqlite3
+import requests, logging, sqlite3
 from bs4 import BeautifulSoup
 from urllib.parse import unquote, urlparse
 from database.db import add_page_to_db
+from json_data.json_io import *
+
 
 USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36'
 
-conn = sqlite3.connect('net_surfer.db')
-cursor = conn.cursor()
+conn = sqlite3.connect('database/net_surfer.db')
 
-# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def load_seed_list(file_name: str = 'database/seed_list.json') -> set[str]:
-    with open(file_name, 'r') as json_file:
-        return set(json.load(json_file)['seed_list'])
-
-def append_seed_list(updated_seed_list: set[str], file_name: str = 'database/seed_list.json') -> None:
-    with open(file_name, 'w') as json_file:
-        json.dump({'seed_list': list(updated_seed_list)}, json_file, indent=4)
-
-def load_crawled_list(file_name: str = 'database/crawled_links_list.json') -> list[str]:
-    with open(file_name, 'r') as json_file:
-        return json.load(json_file)['crawled_links']
-
-def append_crawled_list(updated_seed_list: list[str], file_name: str = 'database/crawled_links_list.json') -> None:
-    with open(file_name, 'w') as json_file:
-        json.dump({'crawled_links': updated_seed_list}, json_file, indent=4)
-
-def get_page_data(parent_link: str, html_content: bytes) -> list[str]:
+def get_page_data(parent_link: str, html_content: bytes) -> (list[str], str):
     soup = BeautifulSoup(html_content, 'html.parser')
     page_links = []
     parsed_parent_link = urlparse(parent_link)
@@ -40,14 +24,14 @@ def get_page_data(parent_link: str, html_content: bytes) -> list[str]:
 
             if not parsed_link.scheme in ['http', 'https']:
                 if not list(link)[0] == '#':
-                    link = f"{parsed_parent_link.scheme}://{parsed_parent_link.netloc}{link}"
+                    link = f"{parsed_parent_link.scheme}://{parsed_parent_link.netloc}/{link}"
                     page_links.append(link)
                     logging.info(f'Fetched {link} from {parent_link}.')
             else:
                 page_links.append(link)
                 logging.info(f'Fetched {link} from {parent_link}.')
 
-    return page_links
+    return page_links, html_content.decode('utf-8')
 
 def main():
     crawled_links = load_crawled_list()
@@ -58,17 +42,29 @@ def main():
             logging.info(f'Crawling through {parent_link}.')
             seed_list.remove(parent_link)
 
-            resp = requests.get(parent_link, headers={'User-Agent': USER_AGENT})
-            if resp.status_code == 200:
-                links = [link for link in get_page_data(parent_link, resp.content) if link not in crawled_links + list(seed_list)]
-                seed_list.update(links)
-                crawled_links.append(parent_link)
-                append_crawled_list(crawled_links)
-                append_seed_list(seed_list)
+            try:
+                resp = requests.get(parent_link, headers={'User-Agent': USER_AGENT})
+                if resp.status_code == 200:
+                    links, html_content = get_page_data(parent_link, resp.content)
+                    links = [link for link in links if link not in crawled_links + list(seed_list)]
 
-                logging.info(f'Done crawling through {parent_link}.')
-            else:
-                logging.warning(f'Problem crawling through {parent_link}, canceling.')
+                    add_page_to_db(conn, parent_link, html_content)
+
+                    logging.info(f'Done crawling through {parent_link}.')
+
+                    seed_list.update(links)
+                    crawled_links.append(parent_link)
+
+                    append_crawled_list(crawled_links)
+                    append_seed_list(seed_list)
+
+                else:
+                    logging.warning(f'Problem crawling through {parent_link}, canceling.')
+
+            except requests.exceptions.RequestException as e:
+                logging.warning(f'There was an error sending the request: {e}')
+
+
 
 if __name__ == '__main__':
     main()
