@@ -37,7 +37,7 @@ def main():
     crawled_links = load_crawled_list()
     seed_list = load_seed_list()
 
-    while True:
+    while seed_list:
         for parent_link in list(seed_list):
             logging.info(f'Crawling through {parent_link}.')
             seed_list.remove(parent_link)
