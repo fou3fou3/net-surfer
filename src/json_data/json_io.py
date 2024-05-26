@@ -1,8 +1,4 @@
-# The json files are made to keep track on where the crawler stopped and continue from that certain point .
-# I might switch this functionality to the db not sure ..
-
 import json
-
 
 def load_seed_list(file_name: str = 'json_data/seed_list.json') -> set[str]:
     with open(file_name, 'r') as json_file:

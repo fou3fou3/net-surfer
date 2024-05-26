@@ -36,7 +36,7 @@ def get_page_data(parent_link: str, html_content: bytes) -> (list[str], str):
 
     return page_links, html_content.decode('utf-8')
 
-def main(allowed_urls: list[str] = []):
+def main(allowed_urls: list[str] = ()):
     crawled_links = load_crawled_list()
     seed_list = load_seed_list()
 
@@ -51,6 +51,7 @@ def main(allowed_urls: list[str] = []):
                              if link not in crawled_links + list(seed_list)
                              and (True if not allowed_urls else any(link.startswith(allowed_url) for allowed_url in allowed_urls))]
 
+                    seed_list.update(links)
                     add_page_to_db(conn, parent_link, html_content)
                     print(f'|- Done crawling through {parent_link}.\n\n')
 
@@ -62,8 +63,6 @@ def main(allowed_urls: list[str] = []):
 
             seed_list.remove(parent_link)
             crawled_links.append(parent_link)
-
-            seed_list.update(links)
 
             append_crawled_list(crawled_links)
             append_seed_list(seed_list)
