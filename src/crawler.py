@@ -1,7 +1,8 @@
-import requests, sqlite3, json
+import requests, sqlite3
 from bs4 import BeautifulSoup
-from urllib.parse import unquote, urlparse
-from database.db import add_page_to_db
+from urllib.parse import unquote, urlparse, ParseResult
+from urllib.robotparser import RobotFileParser
+from database.db import *
 from json_data.json_io import *
 
 
@@ -9,10 +10,9 @@ USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Ge
 
 conn = sqlite3.connect('database/net_surfer.db')
 
-def get_page_data(parent_link: str, html_content: bytes) -> (list[str], str):
+def get_page_data(parent_link: str, html_content: bytes, parsed_parent_link: ParseResult) -> (list[str], str):
     soup = BeautifulSoup(html_content, 'html.parser')
     page_links = []
-    parsed_parent_link = urlparse(parent_link)
 
     for link in soup.find_all('a'):
         href = link.get('href')
@@ -36,9 +36,11 @@ def get_page_data(parent_link: str, html_content: bytes) -> (list[str], str):
 
     return page_links, html_content.decode('utf-8')
 
-def main(allowed_urls: list[str] = ()):
+def main(allowed_urls: tuple[str] = (), robots_txt: bool = False):
     crawled_links = load_crawled_list()
     seed_set = load_seed_set()
+    if robots_txt:
+        rp = RobotFileParser()
 
     while seed_set:
         seed_list = list(seed_set)
@@ -48,10 +50,21 @@ def main(allowed_urls: list[str] = ()):
             try:
                 resp = requests.get(parent_link, headers={'User-Agent': USER_AGENT})
                 if resp.status_code == 200:
-                    links, html_content = get_page_data(parent_link, resp.content)
+                    parsed_parent_link = urlparse(parent_link)
+                    base_url = f'{parsed_parent_link.scheme}://{parsed_parent_link.netloc}'
+                    links, html_content = get_page_data(parent_link, resp.content, parsed_parent_link)
+
+                    if robots_txt:
+                        base_url_robots = fetch_robots_txt(conn, base_url)
+                        if not base_url_robots:
+                            base_url_robots = requests.get(f'{base_url}/robots.txt').text
+                            add_robots_txt(conn, base_url, base_url_robots)
+                        rp.parse(base_url_robots.splitlines())
+
                     links = [link for link in links
                              if link not in [crawled_links + seed_list]
-                             and (True if not allowed_urls else any(link.startswith(allowed_url) for allowed_url in allowed_urls))]
+                             and (True if not allowed_urls else any(link.startswith(allowed_url) for allowed_url in allowed_urls))
+                             and (True if not robots_txt else rp.can_fetch(USER_AGENT, link))]
 
                     seed_set.update(links)
 
