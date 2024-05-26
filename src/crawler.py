@@ -10,7 +10,7 @@ USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Ge
 
 conn = sqlite3.connect('database/net_surfer.db')
 
-def get_page_data(parent_link: str, html_content: bytes, parsed_parent_link: ParseResult) -> (list[str], str):
+def get_page_data(html_content: bytes, parsed_parent_link: ParseResult) -> (list[str], str):
     soup = BeautifulSoup(html_content, 'html.parser')
     page_links = []
 
@@ -52,7 +52,7 @@ def main(allowed_urls: tuple[str] = (), robots_txt: bool = False):
                 if resp.status_code == 200:
                     parsed_parent_link = urlparse(parent_link)
                     base_url = f'{parsed_parent_link.scheme}://{parsed_parent_link.netloc}'
-                    links, html_content = get_page_data(parent_link, resp.content, parsed_parent_link)
+                    links, html_content = get_page_data(resp.content, parsed_parent_link)
 
                     if robots_txt:
                         base_url_robots = fetch_robots_txt(conn, base_url)
