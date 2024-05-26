@@ -1,4 +1,4 @@
-import requests, sqlite3, re
+import requests, sqlite3, json
 from bs4 import BeautifulSoup
 from urllib.parse import unquote, urlparse
 from database.db import add_page_to_db
@@ -38,21 +38,28 @@ def get_page_data(parent_link: str, html_content: bytes) -> (list[str], str):
 
 def main(allowed_urls: list[str] = ()):
     crawled_links = load_crawled_list()
-    seed_list = load_seed_list()
+    seed_set = load_seed_set()
 
-    while seed_list:
-        for parent_link in list(seed_list):
+    while seed_set:
+        seed_list = list(seed_set)
+
+        for index, parent_link in enumerate(seed_list):
             print(f'|- Crawling through {parent_link}.')
             try:
                 resp = requests.get(parent_link, headers={'User-Agent': USER_AGENT})
                 if resp.status_code == 200:
                     links, html_content = get_page_data(parent_link, resp.content)
                     links = [link for link in links
-                             if link not in crawled_links + list(seed_list)
+                             if link not in crawled_links + seed_list
                              and (True if not allowed_urls else any(link.startswith(allowed_url) for allowed_url in allowed_urls))]
 
-                    seed_list.update(links)
-                    add_page_to_db(conn, parent_link, html_content)
+                    seed_set.update(links)
+
+                    if index > 0:
+                        add_page_to_db(conn, parent_link, html_content, links, seed_list[index - 1])
+                    else:
+                        add_page_to_db(conn, parent_link, html_content, links)
+
                     print(f'|- Done crawling through {parent_link}.\n\n')
 
                 else:
@@ -61,11 +68,11 @@ def main(allowed_urls: list[str] = ()):
             except requests.exceptions.RequestException as e:
                 print(f'|- There was an error sending the request: {e}\n\n')
 
-            seed_list.remove(parent_link)
+            seed_set.remove(parent_link)
             crawled_links.append(parent_link)
 
             append_crawled_list(crawled_links)
-            append_seed_list(seed_list)
+            append_seed_set(seed_set)
 
 
 if __name__ == '__main__':
