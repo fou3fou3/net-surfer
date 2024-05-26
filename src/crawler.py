@@ -50,7 +50,7 @@ def main(allowed_urls: list[str] = ()):
                 if resp.status_code == 200:
                     links, html_content = get_page_data(parent_link, resp.content)
                     links = [link for link in links
-                             if link not in crawled_links + seed_list
+                             if link not in [crawled_links + seed_list]
                              and (True if not allowed_urls else any(link.startswith(allowed_url) for allowed_url in allowed_urls))]
 
                     seed_set.update(links)
