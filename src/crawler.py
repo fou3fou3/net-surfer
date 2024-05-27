@@ -8,7 +8,7 @@ from json_data.json_io import *
 
 class Crawler:
     def __init__(self, allowed_paths: tuple[str] = (), respect_robots: bool = False, pages_per_time: int = 10,
-                 request_delay: int = 2):
+                 request_delay: int = 2) -> None:
         self.allowed_paths = allowed_paths
         self.respect_robots = respect_robots
         self.user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36'
@@ -21,7 +21,7 @@ class Crawler:
         self.sliced_seed_list = []
         self.request_delay = request_delay
 
-    def scrape_page_data(self, html_content: bytes, parsed_parent_url: ParseResult) -> [list[str], str]:
+    async def scrape_page_data(self, html_content: bytes, parsed_parent_url: ParseResult) -> [list[str], str]:
         soup = BeautifulSoup(html_content, 'html.parser')
         page_urls = []
 
@@ -47,7 +47,7 @@ class Crawler:
 
         return page_urls, html_content.decode('utf-8', errors='ignore')
 
-    def filter_child_urls(self, seen_urls: set[str], urls: list[str]) -> list[str]:
+    async def filter_child_urls(self, seen_urls: set[str], urls: list[str]) -> list[str]:
         filtred_urls = []
         for url in urls:
             if url not in seen_urls:
@@ -75,7 +75,7 @@ class Crawler:
                     await asyncio.sleep(self.request_delay)
                     parsed_parent_url = urlparse(parent_url)
                     base_url = f'{parsed_parent_url.scheme}://{parsed_parent_url.netloc}'
-                    child_urls, html_content = self.scrape_page_data(await resp.read(), parsed_parent_url)
+                    child_urls, html_content = await self.scrape_page_data(await resp.read(), parsed_parent_url)
 
                     if self.respect_robots:
                         base_url_robots = fetch_robots_txt(self.sqlite3_conn, base_url)
@@ -87,7 +87,7 @@ class Crawler:
                         self.rp.parse(base_url_robots.splitlines())
 
                     seen_urls = set(self.crawled_urls) | self.seed_set
-                    child_urls = self.filter_child_urls(seen_urls, child_urls)
+                    child_urls = await self.filter_child_urls(seen_urls, child_urls)
 
                     self.seed_set.update(child_urls)
 
@@ -105,7 +105,7 @@ class Crawler:
         except requests.exceptions.RequestException as e:
             print(f'|- There was an error sending the request: {e}\n\n')
 
-    async def crawl_pages(self):
+    async def crawl_pages(self) -> None:
         async with aiohttp.ClientSession() as session:
             tasks = []
             for index, parent_url in enumerate(self.sliced_seed_list):
@@ -121,7 +121,7 @@ class Crawler:
         # update the set here because we removed all crawled urls + added child links from them
         update_seed_set(self.seed_set)
 
-    async def run(self):
+    async def run(self) -> None:
         while self.seed_set:
             self.seed_list = list(self.seed_set)
 

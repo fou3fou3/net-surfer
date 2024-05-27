@@ -4,7 +4,7 @@ from sqlite3 import Connection
 
 
 def add_page_to_db(conn: Connection, page_url: str, page_html_content: str, child_urls: list[str],
-                   parent_link: str = 'NULL', ):
+                   parent_link: str = 'NULL') -> None:
     try:
         cursor = conn.cursor()
 
@@ -49,7 +49,7 @@ def fetch_robots_txt(conn: Connection, base_url: str) -> str | None:
         return None
 
 
-def add_robots_txt(conn: Connection, base_url: str, robots_txt: str):
+def add_robots_txt(conn: Connection, base_url: str, robots_txt: str) -> None:
     try:
         cursor = conn.cursor()
 
