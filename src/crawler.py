@@ -13,6 +13,9 @@ class Crawler:
         self.user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36'
         self.sqlite3_conn = sqlite3.connect('database/net_surfer.db')
         self.rp = RobotFileParser()
+        self.crawled_urls = load_crawled_list()
+        self.seed_set = load_seed_set()
+        self.seed_list = list(self.seed_set)
 
     def scrape_page_data(self, html_content: bytes, parsed_parent_url: ParseResult) -> (list[str], str):
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -40,7 +43,7 @@ class Crawler:
 
         return page_urls, html_content.decode('utf-8', errors='ignore')
 
-    def filter_child_urls(self, seen_urls: list[str], urls: list[str]) -> list[str]:
+    def filter_child_urls(self, seen_urls: set[str], urls: list[str]) -> list[str]:
         filtred_urls = []
         for url in urls:
             if url not in seen_urls:
@@ -59,8 +62,7 @@ class Crawler:
 
         return filtred_urls
 
-    def crawl(self, parent_url: str, crawled_urls: list[str], seed_list: list[str], seed_set: set[str],
-              index: int) -> None:
+    def crawl(self, parent_url: str, index: int) -> None:
         print(f'|- Crawling through {parent_url}')
 
         try:
@@ -78,13 +80,13 @@ class Crawler:
 
                     self.rp.parse(base_url_robots.splitlines())
 
-                seen_urls = crawled_urls + seed_list
+                seen_urls = set(self.crawled_urls) | self.seed_set
                 child_urls = self.filter_child_urls(seen_urls, child_urls)
 
-                seed_set.update(child_urls)
+                self.seed_set.update(child_urls)
 
                 if index > 0:
-                    add_page_to_db(self.sqlite3_conn, parent_url, html_content, child_urls, seed_list[index - 1])
+                    add_page_to_db(self.sqlite3_conn, parent_url, html_content, child_urls, self.seed_list[index - 1])
                 else:
                     add_page_to_db(self.sqlite3_conn, parent_url, html_content, child_urls)
 
@@ -97,16 +99,13 @@ class Crawler:
             print(f'|- There was an error sending the request: {e}\n\n')
 
     def run(self):
-        crawled_urls = load_crawled_list()
-        seed_set = load_seed_set()
+        while self.seed_set:
+            self.seed_list = list(self.seed_set)
 
-        while seed_set:
-            seed_list = list(seed_set)
+            for index, parent_url in enumerate(self.seed_list):
+                self.crawl(parent_url, index)
 
-            for index, parent_url in enumerate(seed_list):
-                self.crawl(parent_url, crawled_urls, seed_list, seed_set, index)
-
-                seed_set.remove(parent_url)
-                crawled_urls.append(parent_url)
-                append_crawled_list(crawled_urls)
-                append_seed_set(seed_set)
+                self.seed_set.remove(parent_url)
+                self.crawled_urls.append(parent_url)
+                update_crawled_list(self.crawled_urls)
+                update_seed_set(self.seed_set)
