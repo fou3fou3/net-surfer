@@ -12,6 +12,7 @@ def add_page_to_db(conn: Connection, page_url: str, page_html_content: str, chil
                             page_html_content TEXT NOT NULL,
                             parent_link TEXT,
                             child_links TEXT,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             FOREIGN KEY (parent_link) REFERENCES crawled_pages(page_url)
                             );
                       ''')
