@@ -2,6 +2,7 @@ import json
 from sqlite3 import Connection
 
 
+
 def add_page_to_db(conn: Connection, page_url: str, page_html_content: str, child_urls: list[str],
                    parent_link: str = 'NULL', ):
     try:
@@ -46,6 +47,8 @@ def fetch_robots_txt(conn: Connection, base_url: str) -> str | None:
     except Exception as e:
         print(f'|- Error fetching robots.txt from the database: {e}')
         return None
+
+
 def add_robots_txt(conn: Connection, base_url: str, robots_txt: str):
     try:
         cursor = conn.cursor()
