@@ -131,7 +131,3 @@ class Crawler:
                 self.sliced_seed_list = self.seed_list[start: end]
                 await self.crawl_pages()
                 start = end
-
-
-my_crawler = Crawler(allowed_paths=("https://pastebin.com/",), respect_robots=True)
-asyncio.run(my_crawler.run())
