@@ -2,7 +2,6 @@ import json
 from sqlite3 import Connection
 
 
-
 def add_page_to_db(conn: Connection, page_url: str, page_html_content: str, child_urls: list[str],
                    parent_link: str = 'NULL') -> None:
     try:
