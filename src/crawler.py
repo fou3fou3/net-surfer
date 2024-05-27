@@ -104,6 +104,8 @@ class Crawler:
 
         except requests.exceptions.RequestException as e:
             print(f'|- There was an error sending the request: {e}\n\n')
+        except Exception as e:
+            print(f'|- There was an error handeling the request: {e}')
 
     async def crawl_pages(self) -> None:
         async with aiohttp.ClientSession() as session:
@@ -131,3 +133,7 @@ class Crawler:
                 self.sliced_seed_list = self.seed_list[start: end]
                 await self.crawl_pages()
                 start = end
+
+
+my_crawler = Crawler(allowed_paths=("https://cyteon.tech/",))
+asyncio.run(my_crawler.run())
