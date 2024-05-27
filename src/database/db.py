@@ -2,14 +2,18 @@ import json
 from sqlite3 import Connection
 
 
-def add_page_to_db(conn: Connection, page_url: str, page_html_content: str, child_urls: list[str],
+def add_page_to_db(conn: Connection, page_url: str, page_html_content: str, page_title: str, child_urls: list[str],
                    parent_link: str = 'NULL') -> None:
     try:
         cursor = conn.cursor()
 
+        if not page_title:
+            page_title = 'NULL'
+
         cursor.execute('''CREATE TABLE IF NOT EXISTS crawled_pages (
                             page_url TEXT PRIMARY KEY,
                             page_html_content TEXT NOT NULL,
+                            page_title TEXT NOT NULL,
                             parent_link TEXT,
                             child_links TEXT,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -18,8 +22,8 @@ def add_page_to_db(conn: Connection, page_url: str, page_html_content: str, chil
                       ''')
 
         cursor.execute(
-            ''' INSERT INTO crawled_pages (page_url, page_html_content, parent_link, child_links) VALUES (?, ?, ?, ?) ''',
-            (page_url, page_html_content, parent_link, json.dumps(child_urls)))
+            ''' INSERT INTO crawled_pages (page_url, page_html_content, page_title, parent_link, child_links) VALUES (?, ?, ?, ?, ?) ''',
+            (page_url, page_html_content, page_title, parent_link, json.dumps(child_urls)))
 
         conn.commit()
 

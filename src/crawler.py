@@ -21,8 +21,9 @@ class Crawler:
         self.sliced_seed_list = []
         self.request_delay = request_delay
 
-    async def scrape_page_data(self, html_content: bytes, parsed_parent_url: ParseResult) -> [list[str], str]:
+    async def scrape_page_data(self, html_content: bytes, parsed_parent_url: ParseResult) -> [list[str], str, str]:
         soup = BeautifulSoup(html_content, 'html.parser')
+        page_title = soup.title.string
         page_urls = []
 
         for url in soup.find_all('a'):
@@ -45,7 +46,7 @@ class Crawler:
                     page_urls.append(url)
                     print(f'\t|- Fetched {url}')
 
-        return page_urls, html_content.decode('utf-8', errors='ignore')
+        return page_urls, html_content.decode('utf-8', errors='ignore'), page_title
 
     async def filter_child_urls(self, seen_urls: set[str], urls: list[str]) -> list[str]:
         filtred_urls = []
@@ -75,7 +76,8 @@ class Crawler:
                     await asyncio.sleep(self.request_delay)
                     parsed_parent_url = urlparse(parent_url)
                     base_url = f'{parsed_parent_url.scheme}://{parsed_parent_url.netloc}'
-                    child_urls, html_content = await self.scrape_page_data(await resp.read(), parsed_parent_url)
+                    child_urls, html_content, page_title = await self.scrape_page_data(await resp.read(),
+                                                                                       parsed_parent_url)
 
                     if self.respect_robots:
                         base_url_robots = fetch_robots_txt(self.sqlite3_conn, base_url)
@@ -92,10 +94,10 @@ class Crawler:
                     self.seed_set.update(child_urls)
 
                     if index > 0:
-                        add_page_to_db(self.sqlite3_conn, parent_url, html_content, child_urls,
+                        add_page_to_db(self.sqlite3_conn, parent_url, html_content, page_title, child_urls,
                                        self.sliced_seed_list[index - 1])
                     else:
-                        add_page_to_db(self.sqlite3_conn, parent_url, html_content, child_urls)
+                        add_page_to_db(self.sqlite3_conn, parent_url, html_content, page_title, child_urls)
 
                     print(f'|- Done crawling through {parent_url}.\n\n')
 
