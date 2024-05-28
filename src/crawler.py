@@ -36,14 +36,13 @@ class Crawler:
         else:
             await add_page_to_db(self.sqlite3_conn, page_url, page_content, page_title)
 
-        for word_data in words:
-            await add_word_to_db(self.sqlite3_conn, page_url, word_data['word'], word_data['frequency'])
+        await add_words_to_db(self.sqlite3_conn, page_url, words)
 
     async def scrape_page_data(self, html_content: bytes, parsed_page_url: ParseResult) -> (list[str], str, str, str):
         soup = BeautifulSoup(html_content, 'html.parser')
         page_text = soup.get_text()
         words = [word for word in word_tokenize(page_text) if word.isalnum() and word.lower() not in self.stop_words]
-        words = [{'word': word, 'frequency': freq} for word, freq in Counter(words).items()]
+        words = [(word, freq) for word, freq in Counter(words).items()]
 
         page_urls = []
 

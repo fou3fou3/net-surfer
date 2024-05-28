@@ -31,7 +31,7 @@ async def add_page_to_db(conn: Connection, page_url: str, page_content: str, pag
         print(f'|- Error adding page to the database: {e}')
 
 
-async def add_word_to_db(conn: Connection, page_url: str, word: str, frequency: int):
+async def add_words_to_db(conn: Connection, page_url: str, words: list[tuple[str, int]]):
     try:
         cursor = conn.cursor()
 
@@ -44,9 +44,11 @@ async def add_word_to_db(conn: Connection, page_url: str, word: str, frequency: 
                         );
                       ''')
 
-        cursor.execute(
+        cursor.executemany(
             ''' INSERT INTO word_frequencies (page_url, word, frequency) VALUES (?, ?, ?) ''',
-            (page_url, word, frequency))
+	        [(page_url, word, freq) for word, freq in words])
+
+        print("THATS IT!!")
 
         conn.commit()
 
