@@ -48,8 +48,6 @@ async def add_words_to_db(conn: Connection, page_url: str, words: list[tuple[str
             ''' INSERT INTO word_frequencies (page_url, word, frequency) VALUES (?, ?, ?) ''',
 	        [(page_url, word, freq) for word, freq in words])
 
-        print("THATS IT!!")
-
         conn.commit()
 
     except Exception as e:
