@@ -7,13 +7,12 @@ from json_data.json_io import *
 
 
 class Crawler:
-    def __init__(self, allowed_paths: tuple[str] = (), respect_robots: bool = False, pages_per_time: int = 10,
-                 request_delay: int = 2) -> None:
+    def __init__(self, allowed_paths: tuple[str] = (), respect_robots: bool = False, pages_per_time: int = 15,
+                 request_delay: float = 2) -> None:
         self.allowed_paths = allowed_paths
         self.respect_robots = respect_robots
         self.user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36'
         self.sqlite3_conn = sqlite3.connect('database/net_surfer.db')
-        self.rp = RobotFileParser()
         self.crawled_urls = load_crawled_list()
         self.seed_set = load_seed_set()
         self.seed_list = []
@@ -21,8 +20,9 @@ class Crawler:
         self.sliced_seed_list = []
         self.request_delay = request_delay
 
-    async def scrape_page_data(self, html_content: bytes, parsed_parent_url: ParseResult) -> [list[str], str]:
+    async def scrape_page_data(self, html_content: bytes, parsed_parent_url: ParseResult) -> [list[str], str, str]:
         soup = BeautifulSoup(html_content, 'html.parser')
+        page_title = soup.title.string
         page_urls = []
 
         for url in soup.find_all('a'):
@@ -45,9 +45,9 @@ class Crawler:
                     page_urls.append(url)
                     print(f'\t|- Fetched {url}')
 
-        return page_urls, html_content.decode('utf-8', errors='ignore')
+        return page_urls, html_content.decode('utf-8', errors='ignore'), page_title
 
-    async def filter_child_urls(self, seen_urls: set[str], urls: list[str]) -> list[str]:
+    async def filter_child_urls(self, seen_urls: set[str], urls: list[str], rp: RobotFileParser) -> list[str]:
         filtred_urls = []
         for url in urls:
             if url not in seen_urls:
@@ -59,7 +59,7 @@ class Crawler:
                 if not self.respect_robots:
                     robots_permit = True
                 else:
-                    robots_permit = self.rp.can_fetch(self.user_agent, url)
+                    robots_permit = rp.can_fetch(self.user_agent, url)
 
                 if path_permit and robots_permit:
                     filtred_urls.append(url)
@@ -72,10 +72,11 @@ class Crawler:
         try:
             async with session.get(parent_url, headers={'User-Agent': self.user_agent}) as resp:
                 if resp.status == 200:
-                    await asyncio.sleep(self.request_delay)
+                    rp = RobotFileParser()
                     parsed_parent_url = urlparse(parent_url)
                     base_url = f'{parsed_parent_url.scheme}://{parsed_parent_url.netloc}'
-                    child_urls, html_content = await self.scrape_page_data(await resp.read(), parsed_parent_url)
+                    child_urls, html_content, page_title = await self.scrape_page_data(await resp.read(),
+                                                                                       parsed_parent_url)
 
                     if self.respect_robots:
                         base_url_robots = fetch_robots_txt(self.sqlite3_conn, base_url)
@@ -84,18 +85,20 @@ class Crawler:
                                 base_url_robots = await robots_resp.text()
                                 add_robots_txt(self.sqlite3_conn, base_url, base_url_robots)
 
-                        self.rp.parse(base_url_robots.splitlines())
+                        rp.parse(base_url_robots.splitlines())
 
                     seen_urls = set(self.crawled_urls) | self.seed_set
-                    child_urls = await self.filter_child_urls(seen_urls, child_urls)
+                    child_urls = await self.filter_child_urls(seen_urls, child_urls, rp)
+
+                    await asyncio.sleep(self.request_delay)
 
                     self.seed_set.update(child_urls)
 
                     if index > 0:
-                        add_page_to_db(self.sqlite3_conn, parent_url, html_content, child_urls,
+                        add_page_to_db(self.sqlite3_conn, parent_url, html_content, page_title, child_urls,
                                        self.sliced_seed_list[index - 1])
                     else:
-                        add_page_to_db(self.sqlite3_conn, parent_url, html_content, child_urls)
+                        add_page_to_db(self.sqlite3_conn, parent_url, html_content, page_title, child_urls)
 
                     print(f'|- Done crawling through {parent_url}.\n\n')
 
@@ -104,6 +107,8 @@ class Crawler:
 
         except requests.exceptions.RequestException as e:
             print(f'|- There was an error sending the request: {e}\n\n')
+        except Exception as e:
+            print(f'|- There was an error handeling the request: {e}')
 
     async def crawl_pages(self) -> None:
         async with aiohttp.ClientSession() as session:
