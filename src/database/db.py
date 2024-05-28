@@ -2,7 +2,7 @@ import json
 from sqlite3 import Connection
 
 
-def add_page_to_db(conn: Connection, page_url: str, page_html_content: str, page_title: str, child_urls: list[str],
+def add_page_to_db(conn: Connection, page_url: str, page_html_content: str, page_title: str,
                    parent_link: str = 'NULL') -> None:
     try:
         cursor = conn.cursor()
@@ -15,15 +15,14 @@ def add_page_to_db(conn: Connection, page_url: str, page_html_content: str, page
                             page_html_content TEXT NOT NULL,
                             page_title TEXT NOT NULL,
                             parent_link TEXT,
-                            child_links TEXT,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             FOREIGN KEY (parent_link) REFERENCES crawled_pages(page_url)
                             );
                       ''')
 
         cursor.execute(
-            ''' INSERT INTO crawled_pages (page_url, page_html_content, page_title, parent_link, child_links) VALUES (?, ?, ?, ?, ?) ''',
-            (page_url, page_html_content, page_title, parent_link, json.dumps(child_urls)))
+            ''' INSERT INTO crawled_pages (page_url, page_html_content, page_title, parent_link, child_links) VALUES (?, ?, ?, ?) ''',
+            (page_url, page_html_content, page_title, parent_link))
 
         conn.commit()
 

@@ -95,10 +95,10 @@ class Crawler:
                     self.seed_set.update(child_urls)
 
                     if index > 0:
-                        add_page_to_db(self.sqlite3_conn, parent_url, html_content, page_title, child_urls,
+                        add_page_to_db(self.sqlite3_conn, parent_url, html_content, page_title,
                                        self.sliced_seed_list[index - 1])
                     else:
-                        add_page_to_db(self.sqlite3_conn, parent_url, html_content, page_title, child_urls)
+                        add_page_to_db(self.sqlite3_conn, parent_url, html_content, page_title)
 
                     print(f'|- Done crawling through {parent_url}.\n\n')
 
