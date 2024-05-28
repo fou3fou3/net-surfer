@@ -1,14 +1,22 @@
-import requests, sqlite3, aiohttp, asyncio
+import requests, sqlite3, aiohttp, asyncio, nltk
 from bs4 import BeautifulSoup
 from urllib.parse import unquote, urlparse, ParseResult
 from urllib.robotparser import RobotFileParser
 from database.db import *
+from collections import Counter
 from json_data.json_io import *
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+
 
 
 class Crawler:
     def __init__(self, allowed_paths: tuple[str] = (), respect_robots: bool = False, pages_per_time: int = 15,
                  request_delay: float = 2) -> None:
+        nltk.download('punkt')
+        nltk.download('stopwords')
+
+        self.stop_words = set(stopwords.words('english'))
         self.allowed_paths = allowed_paths
         self.respect_robots = respect_robots
         self.user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36'
@@ -20,9 +28,23 @@ class Crawler:
         self.sliced_seed_list = []
         self.request_delay = request_delay
 
-    async def scrape_page_data(self, html_content: bytes, parsed_parent_url: ParseResult) -> [list[str], str, str]:
+    async def dump_data_to_db(self, page_url: str, page_content: str, page_title: str, index: int,
+                              words: dict[str: int]):
+        if index > 0:
+            add_page_to_db(self.sqlite3_conn, page_url, page_content, page_title,
+                           self.sliced_seed_list[index - 1])
+        else:
+            add_page_to_db(self.sqlite3_conn, page_url, page_content, page_title)
+
+        for word_data in words:
+            add_word_to_db(self.sqlite3_conn, page_url, word_data['word'], word_data['frequency'])
+
+    async def scrape_page_data(self, html_content: bytes, parsed_page_url: ParseResult) -> (list[str], str, str, str):
         soup = BeautifulSoup(html_content, 'html.parser')
-        page_title = soup.title.string
+        page_text = soup.get_text()
+        words = [word for word in word_tokenize(page_text) if word.isalnum() and word.lower() not in self.stop_words]
+        words = [{'word': word, 'frequency': freq} for word, freq in Counter(words).items()]
+
         page_urls = []
 
         for url in soup.find_all('a'):
@@ -34,9 +56,9 @@ class Crawler:
                 if not parsed_url.scheme in ['http', 'https']:
                     if not list(url)[0] == '#':
                         if list(url)[0] == '/':
-                            url = f"{parsed_parent_url.scheme}://{parsed_parent_url.netloc}{url}"
+                            url = f"{parsed_page_url.scheme}://{parsed_page_url.netloc}{url}"
                         else:
-                            url = f"{parsed_parent_url.scheme}://{parsed_parent_url.netloc}/{url}"
+                            url = f"{parsed_page_url.scheme}://{parsed_page_url.netloc}/{url}"
 
                         page_urls.append(url)
                         print(f'\t|- Fetched {url}')
@@ -45,7 +67,7 @@ class Crawler:
                     page_urls.append(url)
                     print(f'\t|- Fetched {url}')
 
-        return page_urls, html_content.decode('utf-8', errors='ignore'), page_title
+        return page_urls, page_text, soup.title.string, words
 
     async def filter_child_urls(self, seen_urls: set[str], urls: list[str], rp: RobotFileParser) -> list[str]:
         filtred_urls = []
@@ -66,17 +88,16 @@ class Crawler:
 
         return filtred_urls
 
-    async def crawl_page(self, parent_url: str, index: int, session: aiohttp.ClientSession) -> None:
-        print(f'|- Crawling through {parent_url}')
-
+    async def crawl_page(self, page_url: str, index: int, session: aiohttp.ClientSession) -> None:
+        print(f'|- Crawling through {page_url}')
         try:
-            async with session.get(parent_url, headers={'User-Agent': self.user_agent}) as resp:
+            async with session.get(page_url, headers={'User-Agent': self.user_agent}) as resp:
                 if resp.status == 200:
                     rp = RobotFileParser()
-                    parsed_parent_url = urlparse(parent_url)
-                    base_url = f'{parsed_parent_url.scheme}://{parsed_parent_url.netloc}'
-                    child_urls, html_content, page_title = await self.scrape_page_data(await resp.read(),
-                                                                                       parsed_parent_url)
+                    parsed_page_url = urlparse(page_url)
+                    base_url = f'{parsed_page_url.scheme}://{parsed_page_url.netloc}'
+                    child_urls, page_content, page_title, page_words = await self.scrape_page_data(await resp.read(),
+                                                                                                   parsed_page_url)
 
                     if self.respect_robots:
                         base_url_robots = fetch_robots_txt(self.sqlite3_conn, base_url)
@@ -94,16 +115,12 @@ class Crawler:
 
                     self.seed_set.update(child_urls)
 
-                    if index > 0:
-                        add_page_to_db(self.sqlite3_conn, parent_url, html_content, page_title,
-                                       self.sliced_seed_list[index - 1])
-                    else:
-                        add_page_to_db(self.sqlite3_conn, parent_url, html_content, page_title)
+                    await self.dump_data_to_db(page_url, page_content, page_title, index, page_words)
 
-                    print(f'|- Done crawling through {parent_url}.\n\n')
+                    print(f'|- Done crawling through {page_url}.\n\n')
 
                 else:
-                    print(f'|- Problem crawling through {parent_url}, {resp.status}\n\n')
+                    print(f'|- Problem crawling through {page_url}, {resp.status}\n\n')
 
         except requests.exceptions.RequestException as e:
             print(f'|- There was an error sending the request: {e}\n\n')
@@ -113,13 +130,13 @@ class Crawler:
     async def crawl_pages(self) -> None:
         async with aiohttp.ClientSession() as session:
             tasks = []
-            for index, parent_url in enumerate(self.sliced_seed_list):
-                tasks.append(asyncio.create_task(self.crawl_page(parent_url, index, session)))
+            for index, page_url in enumerate(self.sliced_seed_list):
+                tasks.append(asyncio.create_task(self.crawl_page(page_url, index, session)))
             await asyncio.gather(*tasks)
 
-        for parent_url in self.sliced_seed_list:
-            self.seed_set.remove(parent_url)
-            self.crawled_urls.append(parent_url)
+        for page_url in self.sliced_seed_list:
+            self.seed_set.remove(page_url)
+            self.crawled_urls.append(page_url)
 
         # update crawled list one time because we are appending and that doesn't affect the overal list
         update_crawled_list(self.crawled_urls)

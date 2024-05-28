@@ -1,8 +1,7 @@
-import json
 from sqlite3 import Connection
 
 
-def add_page_to_db(conn: Connection, page_url: str, page_html_content: str, page_title: str,
+def add_page_to_db(conn: Connection, page_url: str, page_content: str, page_title: str,
                    parent_link: str = 'NULL') -> None:
     try:
         cursor = conn.cursor()
@@ -12,7 +11,7 @@ def add_page_to_db(conn: Connection, page_url: str, page_html_content: str, page
 
         cursor.execute('''CREATE TABLE IF NOT EXISTS crawled_pages (
                             page_url TEXT PRIMARY KEY,
-                            page_html_content TEXT NOT NULL,
+                            page_content TEXT NOT NULL,
                             page_title TEXT NOT NULL,
                             parent_link TEXT,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -21,8 +20,8 @@ def add_page_to_db(conn: Connection, page_url: str, page_html_content: str, page
                       ''')
 
         cursor.execute(
-            ''' INSERT INTO crawled_pages (page_url, page_html_content, page_title, parent_link, child_links) VALUES (?, ?, ?, ?) ''',
-            (page_url, page_html_content, page_title, parent_link))
+            ''' INSERT INTO crawled_pages (page_url, page_content, page_title, parent_link) VALUES (?, ?, ?, ?) ''',
+            (page_url, page_content, page_title, parent_link))
 
         conn.commit()
 
@@ -30,6 +29,29 @@ def add_page_to_db(conn: Connection, page_url: str, page_html_content: str, page
 
     except Exception as e:
         print(f'|- Error adding page to the database: {e}')
+
+
+def add_word_to_db(conn: Connection, page_url: str, word: str, frequency: int) -> None:
+    try:
+        cursor = conn.cursor()
+
+        cursor.execute('''CREATE TABLE IF NOT EXISTS word_frequencies (
+                            page_url TEXT,
+                            word TEXT NOT NULL,
+                            frequency INTEGER NOT NULL,
+                            PRIMARY KEY (page_url, word),
+                            FOREIGN KEY (page_url) REFERENCES crawled_pages(page_url)
+                        );
+                      ''')
+
+        cursor.execute(
+            ''' INSERT INTO word_frequencies (page_url, word, frequency) VALUES (?, ?, ?) ''',
+            (page_url, word, frequency))
+
+        conn.commit()
+
+    except Exception as e:
+        print(f'|- Error adding word to the database: {e}')
 
 
 def fetch_robots_txt(conn: Connection, base_url: str) -> str | None:
