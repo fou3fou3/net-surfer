@@ -1,8 +1,8 @@
 from sqlite3 import Connection
 
 
-def add_page_to_db(conn: Connection, page_url: str, page_content: str, page_title: str,
-                   parent_link: str = 'NULL') -> None:
+async def add_page_to_db(conn: Connection, page_url: str, page_content: str, page_title: str,
+                         parent_link: str = 'NULL'):
     try:
         cursor = conn.cursor()
 
@@ -31,7 +31,7 @@ def add_page_to_db(conn: Connection, page_url: str, page_content: str, page_titl
         print(f'|- Error adding page to the database: {e}')
 
 
-def add_word_to_db(conn: Connection, page_url: str, word: str, frequency: int) -> None:
+async def add_word_to_db(conn: Connection, page_url: str, word: str, frequency: int):
     try:
         cursor = conn.cursor()
 
@@ -54,7 +54,7 @@ def add_word_to_db(conn: Connection, page_url: str, word: str, frequency: int) -
         print(f'|- Error adding word to the database: {e}')
 
 
-def fetch_robots_txt(conn: Connection, base_url: str) -> str | None:
+async def fetch_robots_txt(conn: Connection, base_url: str) -> str | None:
     try:
         cursor = conn.cursor()
 
@@ -62,19 +62,17 @@ def fetch_robots_txt(conn: Connection, base_url: str) -> str | None:
 
         result = cursor.fetchone()
         if result:
-            print(f'|- Successfully fetched robots.txt of {base_url}')
             return result[0]
 
-        else:
-            print(f'|- No robots.txt found in the database for {base_url}')
-            return None
+        print(f'|- No robots.txt found in the database for {base_url}')
+        return None
 
     except Exception as e:
         print(f'|- Error fetching robots.txt from the database: {e}')
         return None
 
 
-def add_robots_txt(conn: Connection, base_url: str, robots_txt: str) -> None:
+async def add_robots_txt(conn: Connection, base_url: str, robots_txt: str):
     try:
         cursor = conn.cursor()
 

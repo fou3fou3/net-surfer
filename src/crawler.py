@@ -31,13 +31,13 @@ class Crawler:
     async def dump_data_to_db(self, page_url: str, page_content: str, page_title: str, index: int,
                               words: dict[str: int]):
         if index > 0:
-            add_page_to_db(self.sqlite3_conn, page_url, page_content, page_title,
+            await add_page_to_db(self.sqlite3_conn, page_url, page_content, page_title,
                            self.sliced_seed_list[index - 1])
         else:
-            add_page_to_db(self.sqlite3_conn, page_url, page_content, page_title)
+            await add_page_to_db(self.sqlite3_conn, page_url, page_content, page_title)
 
         for word_data in words:
-            add_word_to_db(self.sqlite3_conn, page_url, word_data['word'], word_data['frequency'])
+            await add_word_to_db(self.sqlite3_conn, page_url, word_data['word'], word_data['frequency'])
 
     async def scrape_page_data(self, html_content: bytes, parsed_page_url: ParseResult) -> (list[str], str, str, str):
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -100,11 +100,11 @@ class Crawler:
                                                                                                    parsed_page_url)
 
                     if self.respect_robots:
-                        base_url_robots = fetch_robots_txt(self.sqlite3_conn, base_url)
+                        base_url_robots = await fetch_robots_txt(self.sqlite3_conn, base_url)
                         if not base_url_robots:
                             async with session.get(f'{base_url}/robots.txt') as robots_resp:
                                 base_url_robots = await robots_resp.text()
-                                add_robots_txt(self.sqlite3_conn, base_url, base_url_robots)
+                                await add_robots_txt(self.sqlite3_conn, base_url, base_url_robots)
 
                         rp.parse(base_url_robots.splitlines())
 
