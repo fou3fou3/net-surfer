@@ -1,4 +1,4 @@
-import requests, sqlite3, aiohttp, asyncio, nltk
+import requests, sqlite3, aiohttp, asyncio, nltk, re
 from bs4 import BeautifulSoup
 from urllib.parse import unquote, urlparse, ParseResult
 from urllib.robotparser import RobotFileParser
@@ -40,7 +40,7 @@ class Crawler:
 
     async def scrape_page_data(self, html_content: bytes, parsed_page_url: ParseResult) -> (list[str], str, str, str):
         soup = BeautifulSoup(html_content, 'html.parser')
-        page_text = soup.get_text()
+        page_text = re.sub(r'\s+', ' ', soup.get_text()).strip()
         words = [word for word in word_tokenize(page_text) if word.isalnum() and word.lower() not in self.stop_words]
         words = [(word, freq) for word, freq in Counter(words).items()]
 
