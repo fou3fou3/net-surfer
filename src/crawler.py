@@ -1,4 +1,4 @@
-import requests, sqlite3, aiohttp, asyncio, nltk, re
+import requests, sqlite3, aiohttp, asyncio, nltk, re, os
 from bs4 import BeautifulSoup
 from urllib.parse import unquote, urlparse, ParseResult
 from urllib.robotparser import RobotFileParser
@@ -12,7 +12,7 @@ from nltk.tokenize import word_tokenize
 
 class Crawler:
     def __init__(self, allowed_paths: tuple[str] = (), respect_robots: bool = False, pages_per_time: int = 15,
-                 request_delay: float = 2) -> None:
+                 request_delay: float = 2, crawl_depth: int = None) -> None:
         nltk.download('punkt')
         nltk.download('stopwords')
 
@@ -27,6 +27,8 @@ class Crawler:
         self.page_per_time = pages_per_time
         self.sliced_seed_list = []
         self.request_delay = request_delay
+        self.crawl_depth = crawl_depth
+        self.crawl_counter = 0
 
     async def dump_data_to_db(self, page_url: str, page_content: str, page_title: str, index: int,
                               words: dict[str: int]):
@@ -117,6 +119,13 @@ class Crawler:
                     await self.dump_data_to_db(page_url, page_content, page_title, index, page_words)
 
                     print(f'|- Done crawling through {page_url}.\n\n')
+
+                    if self.crawl_depth:
+                        self.crawl_counter += 1
+
+                        if self.crawl_depth > self.crawl_counter:
+                            print(f'Reached maximum crawl depth ({self.crawl_depth}) exiting .. ({page_url})')
+                            os._exit(0)
 
                 else:
                     print(f'|- Problem crawling through {page_url}, {resp.status}\n\n')
