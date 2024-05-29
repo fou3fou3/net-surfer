@@ -30,6 +30,8 @@ def init_crawled_links_table(conn: Connection):
 							);
 					  ''')
 
+		cursor.execute('CREATE INDEX IF NOT EXISTS idx_page_url ON crawled_pages(page_url);')
+
 		conn.commit()
 
 	except Exception as e:
