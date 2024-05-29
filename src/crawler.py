@@ -42,7 +42,8 @@ class Crawler:
 
     async def scrape_page_data(self, html_content: bytes, parsed_page_url: ParseResult) -> (list[str], str, str, str):
         soup = BeautifulSoup(html_content, 'html.parser')
-        page_text = re.sub(r'\s+', ' ', soup.get_text()).strip()
+        page_text = re.sub(r'\s+', ' ', soup.body.get_text(separator=' ')).strip()
+
         words = [word for word in word_tokenize(page_text) if word.isalnum() and word.lower() not in self.stop_words]
         words = [(word, freq) for word, freq in Counter(words).items()]
 

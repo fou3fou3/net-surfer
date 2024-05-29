@@ -76,5 +76,5 @@ def init_robots_table(conn: Connection):
 
 
 init_json_functions = [init_crawled_list(), init_seed_list()]
-init_tables_functions = [init_crawled_links_table(conn=connection), init_words_table(connection),
-                         init_words_table(connection)]
+init_tables_functions = [init_crawled_links_table(connection), init_words_table(connection),
+                         init_robots_table(connection)]
