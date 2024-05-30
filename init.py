@@ -1,4 +1,4 @@
-import json, sqlite3
+import json, sqlite3, redis
 from sqlite3 import Connection
 
 connection = sqlite3.connect('src/database/net_surfer.db')
@@ -75,6 +75,24 @@ def init_robots_table(conn: Connection):
 		print(f'Error initializing the robots_txt table: {e}')
 
 
+def create_redis_list(list_name: str = 'crawled_urls'):
+	try:
+		conn = redis.Redis(host='localhost', port=6379, db=0)
+		conn.rpush(list_name, '')
+
+	except Exception as e:
+		print(f'There was an error creating the list: {e}')
+
+
+def clear_crawled_links(list_name: str = 'crawled_urls'):
+	try:
+		conn = redis.Redis(host='localhost', port=6379, db=0)
+		conn.delete(list_name)
+	except Exception as e:
+		print(f'There was an error clearing {list_name}: {e}')
+
+
 init_json_functions = [init_crawled_list(), init_seed_list()]
 init_tables_functions = [init_crawled_links_table(connection), init_words_table(connection),
                          init_robots_table(connection)]
+init_redis_db_func = [clear_crawled_links(), create_redis_list()]
