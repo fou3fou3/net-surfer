@@ -12,8 +12,8 @@ from nltk.tokenize import word_tokenize
 
 
 class Crawler:
-    def __init__(self, allowed_paths: tuple[str] = (), respect_robots: bool = False, pages_per_time: int = 15,
-                 request_delay: float = 2, crawl_depth: int = None) -> None:
+    def __init__(self, allowed_paths: tuple[str] = (), respect_robots: bool = False, pages_per_time: int = 5,
+                 request_delay: float = 1, crawl_depth: int = None) -> None:
         nltk.download('punkt')
         nltk.download('stopwords')
 
@@ -130,7 +130,7 @@ class Crawler:
                     if self.crawl_depth:
                         self.crawl_counter += 1
 
-                        if self.crawl_depth > self.crawl_counter:
+                        if self.crawl_depth <= self.crawl_counter:
                             print(f'Reached maximum crawl depth ({self.crawl_depth}) exiting .. ({page_url})')
                             os._exit(0)
 

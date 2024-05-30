@@ -18,7 +18,7 @@ async def add_page_to_db(conn: Connection, page_url: str, page_content: str, pag
         print(f'|- Successfully added {page_url} to the database.')
 
     except Exception as e:
-        print(f'|- Error adding page to the database: {e}')
+        print(f"\033[31m|- Error adding page to the database: {e}\033[0m")
 
 
 async def add_words_to_db(conn: Connection, page_url: str, words: list[tuple[str, int]]):

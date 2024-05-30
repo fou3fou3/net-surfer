@@ -7,10 +7,6 @@ connection = sqlite3.connect('src/database/net_surfer.db')
 # Be sure to run this file before starting the crawler or making any database operations as it cleans the json files
 # and initializes database tables
 
-def init_crawled_list(file_name: str = 'src/json_data/crawled_links.json') -> None:
-	with open(file_name, 'w') as json_file:
-		json.dump({'crawled_links': []}, json_file, indent=4)
-
 def init_seed_list(file_name: str = 'src/json_data/seed_list.json') -> None:
 	with open(file_name, 'w') as json_file:
 		json.dump({'seed_list': []}, json_file, indent=4)
@@ -92,7 +88,7 @@ def clear_crawled_links(list_name: str = 'crawled_urls'):
 		print(f'There was an error clearing {list_name}: {e}')
 
 
-init_json_functions = [init_crawled_list(), init_seed_list()]
+init_json_functions = [init_seed_list()]
 init_tables_functions = [init_crawled_links_table(connection), init_words_table(connection),
                          init_robots_table(connection)]
 init_redis_db_func = [clear_crawled_links(), create_redis_list()]
