@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import unquote, urlparse, ParseResult
 from urllib.robotparser import RobotFileParser
 from database.db import *
+from database.crawled_links import *
 from collections import Counter
 from json_data.json_io import *
 from nltk.corpus import stopwords
@@ -21,7 +22,6 @@ class Crawler:
         self.respect_robots = respect_robots
         self.user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36'
         self.sqlite3_conn = sqlite3.connect('database/net_surfer.db')
-        self.crawled_urls = load_crawled_list()
         self.seed_set = load_seed_set()
         self.seed_list = []
         self.page_per_time = pages_per_time
@@ -71,7 +71,7 @@ class Crawler:
 
         return page_urls, page_text, soup.title.string, words
 
-    async def filter_child_urls(self, seen_urls: set[str], urls: list[str], rp: RobotFileParser) -> list[str]:
+    async def filter_child_urls(self, seen_urls: list[str], urls: list[str], rp: RobotFileParser) -> list[str]:
         filtred_urls = []
         for url in urls:
             if url not in seen_urls:
@@ -93,6 +93,11 @@ class Crawler:
     async def crawl_page(self, page_url: str, index: int, session: aiohttp.ClientSession) -> None:
         print(f'|- Crawling through {page_url}')
         try:
+            crawled_urls = get_all_crawled_urls()
+
+            if page_url in crawled_urls:
+                raise Exception('Url has been crawled')
+
             async with session.get(page_url, headers={'User-Agent': self.user_agent}) as resp:
                 if resp.status == 200:
                     rp = RobotFileParser()
@@ -110,14 +115,15 @@ class Crawler:
 
                         rp.parse(base_url_robots.splitlines())
 
-                    seen_urls = set(self.crawled_urls) | self.seed_set
-                    child_urls = await self.filter_child_urls(seen_urls, child_urls, rp)
+                    child_urls = await self.filter_child_urls(crawled_urls, child_urls, rp)
 
                     await asyncio.sleep(self.request_delay)
 
                     self.seed_set.update(child_urls)
 
                     await self.dump_data_to_db(page_url, page_content, page_title, index, page_words)
+
+                    add_crawled_url(page_url)
 
                     print(f'|- Done crawling through {page_url}.\n\n')
 
@@ -145,10 +151,7 @@ class Crawler:
 
         for page_url in self.sliced_seed_list:
             self.seed_set.remove(page_url)
-            self.crawled_urls.append(page_url)
 
-        # update crawled list one time because we are appending and that doesn't affect the overal list
-        update_crawled_list(self.crawled_urls)
         # update the set here because we removed all crawled urls + added child links from them
         update_seed_set(self.seed_set)
 
