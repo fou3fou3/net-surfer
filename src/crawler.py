@@ -1,4 +1,4 @@
-import requests, sqlite3, aiohttp, asyncio, nltk, re, os
+import requests, aiohttp, asyncio, asyncpg, nltk, re, os
 from bs4 import BeautifulSoup
 from urllib.parse import unquote, urlparse, ParseResult
 from urllib.robotparser import RobotFileParser
@@ -10,7 +10,7 @@ from collections import Counter
 from json_data.json_io import *
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-
+from dotenv import load_dotenv
 
 
 class Crawler:
@@ -19,11 +19,11 @@ class Crawler:
         nltk.download('punkt')
         nltk.download('stopwords')
 
+        load_dotenv()
         self.stop_words = set(stopwords.words('english'))
         self.allowed_paths = allowed_paths
         self.respect_robots = respect_robots
         self.user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36'
-        self.sqlite3_conn = sqlite3.connect('database/net_surfer.db')
         self.page_per_time = pages_per_time
         self.request_delay = request_delay
         self.crawl_depth = crawl_depth
@@ -31,14 +31,18 @@ class Crawler:
         self.threads = threads
 
     async def dump_data_to_db(self, page_url: str, page_content: str, page_title: str, words: dict[str: int], parent_url: str):
+        conn = await asyncpg.connect(f'postgresql://{os.getenv("DB_USR")}:{os.getenv("DB_PASSWD")}@localhost:5432/net_surfer')
+        
         if parent_url != 'NULL':
-            await add_page_to_db(self.sqlite3_conn, page_url, page_content, page_title, parent_url)
+            await add_page_to_db(conn, page_url, page_content, page_title, parent_url)
         else:
-            await add_page_to_db(self.sqlite3_conn, page_url, page_content, page_title)
+            await add_page_to_db(conn, page_url, page_content, page_title)
 
-        await add_words_to_db(self.sqlite3_conn, page_url, words)
+        await add_words_to_db(conn, page_url, words)
+        
+        await conn.close()
 
-    async def scrape_page_data(self, html_content: bytes, parsed_page_url: ParseResult) -> (list[str], str, str, str):
+    async def scrape_page_data(self, html_content: bytes, parsed_page_url: ParseResult) -> tuple[list[str], str, str | None, list[tuple[str, int]]]:
         soup = BeautifulSoup(html_content, 'html.parser')
         page_text = re.sub(r'\s+', ' ', soup.body.get_text(separator=' ')).strip()
 
@@ -62,11 +66,9 @@ class Crawler:
 
                         page_urls.append(url)
 
-
                 else:
                     page_urls.append(url)
 
-        print(f'\t|- Fetched {len(page_urls)} urls')
         return page_urls, page_text, soup.title.string, words
 
     async def filter_child_urls(self, urls: list[str], rp: RobotFileParser) -> list[str]:
@@ -91,7 +93,7 @@ class Crawler:
         return filtered_urls
 
     async def crawl_page(self, page_url: str, parent_url: str, session: aiohttp.ClientSession) -> None:
-        print(f'|- Crawling through {page_url}')
+        print(f'\n|- Crawling through {page_url}')
         try:
             crawled_urls = get_all_crawled_urls()
 
@@ -103,8 +105,7 @@ class Crawler:
                     rp = RobotFileParser()
                     parsed_page_url = urlparse(page_url)
                     base_url = f'{parsed_page_url.scheme}://{parsed_page_url.netloc}'
-                    child_urls, page_content, page_title, page_words = await self.scrape_page_data(await resp.read(),
-                                                                                                   parsed_page_url)
+                    child_urls, page_content, page_title, page_words = await self.scrape_page_data(await resp.read(), parsed_page_url)
 
                     if self.respect_robots:
                         base_url_robots = fetch_robots(base_url)
@@ -140,7 +141,7 @@ class Crawler:
         except requests.exceptions.RequestException as e:
             print(f'|- There was an error sending the request: {e}\n\n')
         except Exception as e:
-            print(f'|- There was an error handling the request: {e}')
+            print(f'|- There was an error handling the request: {e}\n\n')
 
     async def crawl_pages(self) -> None:
         frontier = await fetch_from_frontier(num_urls=self.page_per_time)
@@ -158,3 +159,6 @@ class Crawler:
         await add_to_frontier(seed_list, 'NULL')
 
         await self.crawl_pages()
+        
+my_Crawler = Crawler(respect_robots=True, pages_per_time=15)
+asyncio.run(my_Crawler.run())
