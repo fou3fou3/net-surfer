@@ -68,10 +68,12 @@ class Crawler:
 
         return page_urls, page_text, soup.title.string, words
 
-    async def filter_child_urls(self, seen_urls: list[str], urls: list[str], rp: RobotFileParser) -> list[str]:
+    async def filter_child_urls(self, urls: list[str], rp: RobotFileParser) -> list[str]:
         filtred_urls = []
+        crawled_urls = get_all_crawled_urls()
+
         for url in urls:
-            if url not in seen_urls:
+            if url not in crawled_urls:
                 if not self.allowed_paths:
                     path_permit = True
                 else:
@@ -112,7 +114,7 @@ class Crawler:
 
                         rp.parse(base_url_robots.splitlines())
 
-                    child_urls = await self.filter_child_urls(crawled_urls, child_urls, rp)
+                    child_urls = await self.filter_child_urls(child_urls, rp)
 
                     await asyncio.sleep(self.request_delay)
 
