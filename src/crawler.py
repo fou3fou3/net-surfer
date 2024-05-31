@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import unquote, urlparse, ParseResult
 from urllib.robotparser import RobotFileParser
 from database.db import *
-from crawled_urls.redis_funcs import *
+from redis_funcs.crawled_urls import *
 from frontier.rabbitmq_funcs import *
 from collections import Counter
 from json_data.json_io import *
@@ -69,7 +69,7 @@ class Crawler:
         return page_urls, page_text, soup.title.string, words
 
     async def filter_child_urls(self, urls: list[str], rp: RobotFileParser) -> list[str]:
-        filtred_urls = []
+        filtered_urls = []
         crawled_urls = get_all_crawled_urls()
 
         for url in urls:
@@ -85,9 +85,9 @@ class Crawler:
                     robots_permit = rp.can_fetch(self.user_agent, url)
 
                 if path_permit and robots_permit:
-                    filtred_urls.append(url)
+                    filtered_urls.append(url)
 
-        return filtred_urls
+        return filtered_urls
 
     async def crawl_page(self, page_url: str, parent_url: str, session: aiohttp.ClientSession) -> None:
         print(f'|- Crawling through {page_url}')
@@ -139,7 +139,7 @@ class Crawler:
         except requests.exceptions.RequestException as e:
             print(f'|- There was an error sending the request: {e}\n\n')
         except Exception as e:
-            print(f'|- There was an error handeling the request: {e}')
+            print(f'|- There was an error handling the request: {e}')
 
     async def crawl_pages(self) -> None:
         frontier = await fetch_from_frontier(num_urls=self.page_per_time)
