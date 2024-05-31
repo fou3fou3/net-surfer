@@ -1,4 +1,4 @@
-import json, sqlite3, redis
+import json, sqlite3, redis, pika
 from sqlite3 import Connection
 
 connection = sqlite3.connect('src/database/net_surfer.db')
@@ -87,8 +87,27 @@ def clear_crawled_links(list_name: str = 'crawled_urls'):
 	except Exception as e:
 		print(f'There was an error clearing {list_name}: {e}')
 
+def init_frontier(queue_name='frontier'):
+	try:
+		# Connect to RabbitMQ
+		conn = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+		channel = conn.channel()
+
+		# Declare the queue to ensure it exists
+		channel.queue_declare(queue=queue_name, durable=True)
+
+		# Purge the queue
+		channel.queue_purge(queue=queue_name)
+		print(f"Queue '{queue_name}' cleared successfully")
+
+		# Close the connection
+		connection.close()
+	except pika.exceptions.ChannelClosedByBroker as e:
+		print(f"Error clearing queue: {e}")
+
 
 init_json_functions = [init_seed_list()]
 init_tables_functions = [init_crawled_links_table(connection), init_words_table(connection),
-                         init_robots_table(connection)]
+						 init_robots_table(connection)]
 init_redis_db_func = [clear_crawled_links(), create_redis_list()]
+init_frontier_queue = [init_frontier()]

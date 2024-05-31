@@ -3,7 +3,8 @@ from bs4 import BeautifulSoup
 from urllib.parse import unquote, urlparse, ParseResult
 from urllib.robotparser import RobotFileParser
 from database.db import *
-from database.crawled_links import *
+from crawled_urls.redis_funcs import *
+from frontier.rabbitmq_funcs import *
 from collections import Counter
 from json_data.json_io import *
 from nltk.corpus import stopwords
@@ -13,7 +14,7 @@ from nltk.tokenize import word_tokenize
 
 class Crawler:
     def __init__(self, allowed_paths: tuple[str] = (), respect_robots: bool = False, pages_per_time: int = 5,
-                 request_delay: float = 1, crawl_depth: int = None) -> None:
+                 request_delay: float = 1, crawl_depth: int = None, threads: int = 1) -> None:
         nltk.download('punkt')
         nltk.download('stopwords')
 
@@ -22,19 +23,15 @@ class Crawler:
         self.respect_robots = respect_robots
         self.user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36'
         self.sqlite3_conn = sqlite3.connect('database/net_surfer.db')
-        self.seed_set = load_seed_set()
-        self.seed_list = []
         self.page_per_time = pages_per_time
-        self.sliced_seed_list = []
         self.request_delay = request_delay
         self.crawl_depth = crawl_depth
         self.crawl_counter = 0
+        self.threads = threads
 
-    async def dump_data_to_db(self, page_url: str, page_content: str, page_title: str, index: int,
-                              words: dict[str: int]):
-        if index > 0:
-            await add_page_to_db(self.sqlite3_conn, page_url, page_content, page_title,
-                           self.sliced_seed_list[index - 1])
+    async def dump_data_to_db(self, page_url: str, page_content: str, page_title: str, words: dict[str: int], parent_url: str):
+        if parent_url != 'NULL':
+            await add_page_to_db(self.sqlite3_conn, page_url, page_content, page_title, parent_url)
         else:
             await add_page_to_db(self.sqlite3_conn, page_url, page_content, page_title)
 
@@ -90,7 +87,7 @@ class Crawler:
 
         return filtred_urls
 
-    async def crawl_page(self, page_url: str, index: int, session: aiohttp.ClientSession) -> None:
+    async def crawl_page(self, page_url: str, parent_url: str, session: aiohttp.ClientSession) -> None:
         print(f'|- Crawling through {page_url}')
         try:
             crawled_urls = get_all_crawled_urls()
@@ -119,9 +116,9 @@ class Crawler:
 
                     await asyncio.sleep(self.request_delay)
 
-                    self.seed_set.update(child_urls)
+                    await add_to_frontier(child_urls, page_url)
 
-                    await self.dump_data_to_db(page_url, page_content, page_title, index, page_words)
+                    await self.dump_data_to_db(page_url, page_content, page_title, page_words, parent_url)
 
                     add_crawled_url(page_url)
 
@@ -143,25 +140,18 @@ class Crawler:
             print(f'|- There was an error handeling the request: {e}')
 
     async def crawl_pages(self) -> None:
-        async with aiohttp.ClientSession() as session:
-            tasks = []
-            for index, page_url in enumerate(self.sliced_seed_list):
-                tasks.append(asyncio.create_task(self.crawl_page(page_url, index, session)))
-            await asyncio.gather(*tasks)
+        while True:
+            frontier = await fetch_from_frontier(num_urls=self.page_per_time)
 
-        for page_url in self.sliced_seed_list:
-            self.seed_set.remove(page_url)
+            async with aiohttp.ClientSession() as session:
+                tasks = []
+                for url_data in frontier:
+                    tasks.append(asyncio.create_task(self.crawl_page(url_data['url'], url_data['parent_url'], session)))
+                await asyncio.gather(*tasks)
 
-        # update the set here because we removed all crawled urls + added child links from them
-        update_seed_set(self.seed_set)
 
     async def run(self) -> None:
-        while self.seed_set:
-            self.seed_list = list(self.seed_set)
+        seed_list = load_seed_list()
+        await add_to_frontier(seed_list, 'NULL')
 
-            start = 0
-            while start < len(self.seed_list):
-                end = start + self.page_per_time
-                self.sliced_seed_list = self.seed_list[start: end]
-                await self.crawl_pages()
-                start = end
+        await self.crawl_pages()

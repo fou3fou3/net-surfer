@@ -18,7 +18,7 @@ async def add_page_to_db(conn: Connection, page_url: str, page_content: str, pag
         print(f'|- Successfully added {page_url} to the database.')
 
     except Exception as e:
-        print(f"\033[31m|- Error adding page to the database: {e}\033[0m")
+        print(f"|- Error adding page {page_url} to the database: {e}")
 
 
 async def add_words_to_db(conn: Connection, page_url: str, words: list[tuple[str, int]]):
@@ -49,7 +49,7 @@ async def fetch_robots_txt(conn: Connection, base_url: str) -> str | None:
         return None
 
     except Exception as e:
-        print(f'|- Error fetching robots.txt from the database: {e}')
+        print(f'|- Error fetching robots.txt of {base_url} from the database: {e}')
         return None
 
 
@@ -65,4 +65,4 @@ async def add_robots_txt(conn: Connection, base_url: str, robots_txt: str):
         print(f'|- Successfully added robots.txt of {base_url} to the database.')
 
     except Exception as e:
-        print(f'|- Error adding robots.txt to the database: {e}')
+        print(f'|- Error adding robots.txt of {base_url}  to the database: {e}')
