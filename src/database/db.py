@@ -9,7 +9,7 @@ async def add_page_to_db(conn: Connection, page_url: str, page_content: str, pag
 				page_url, page_content, page_title, parent_link)
 		else:
 			await conn.execute(
-				'''INSERT INTO crawled_pages (page_url, page_content, page_title, NULL) VALUES ($1, $2, $3, $4)''',
+				'''INSERT INTO crawled_pages (page_url, page_content, page_title) VALUES ($1, $2, $3)''',
 				page_url, page_content, page_title)
 		
 	except Exception as e:
