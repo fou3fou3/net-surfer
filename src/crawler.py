@@ -140,15 +140,15 @@ class Crawler:
             print(f'|- There was an error handeling the request: {e}')
 
     async def crawl_pages(self) -> None:
-        while True:
-            frontier = await fetch_from_frontier(num_urls=self.page_per_time)
-
+        frontier = await fetch_from_frontier(num_urls=self.page_per_time)
+        while frontier:
             async with aiohttp.ClientSession() as session:
                 tasks = []
                 for url_data in frontier:
                     tasks.append(asyncio.create_task(self.crawl_page(url_data['url'], url_data['parent_url'], session)))
                 await asyncio.gather(*tasks)
 
+            frontier = await fetch_from_frontier(num_urls=self.page_per_time)
 
     async def run(self) -> None:
         seed_list = load_seed_list()
