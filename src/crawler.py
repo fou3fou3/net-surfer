@@ -4,6 +4,7 @@ from urllib.parse import unquote, urlparse, ParseResult
 from urllib.robotparser import RobotFileParser
 from database.db import *
 from redis_funcs.crawled_urls import *
+from redis_funcs.robots_txt import *
 from frontier.rabbitmq_funcs import *
 from collections import Counter
 from json_data.json_io import *
@@ -106,11 +107,11 @@ class Crawler:
                                                                                                    parsed_page_url)
 
                     if self.respect_robots:
-                        base_url_robots = await fetch_robots_txt(self.sqlite3_conn, base_url)
+                        base_url_robots = fetch_robots(base_url)
                         if not base_url_robots:
                             async with session.get(f'{base_url}/robots.txt') as robots_resp:
                                 base_url_robots = await robots_resp.text()
-                                await add_robots_txt(self.sqlite3_conn, base_url, base_url_robots)
+                                add_robots(base_url, str(base_url_robots))
 
                         rp.parse(base_url_robots.splitlines())
 

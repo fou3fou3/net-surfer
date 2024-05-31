@@ -48,35 +48,3 @@ async def add_words_to_db(conn: Connection, page_url: str, words: list[tuple[str
 
     except Exception as e:
         print(f'|- Error adding word to the database: {e}')
-
-async def fetch_robots_txt(conn: Connection, base_url: str) -> str | None:
-    try:
-        cursor = conn.cursor()
-
-        cursor.execute('SELECT robots_text FROM robots_txt WHERE base_url = ?', (base_url,))
-
-        result = cursor.fetchone()
-        if result:
-            return result[0]
-
-        print(f'|- No robots.txt found in the database for {base_url}')
-        return None
-
-    except Exception as e:
-        print(f'|- Error fetching robots.txt of {base_url} from the database: {e}')
-        return None
-
-
-async def add_robots_txt(conn: Connection, base_url: str, robots_txt: str):
-    try:
-        cursor = conn.cursor()
-
-        cursor.execute(''' INSERT INTO robots_txt (base_url, robots_text) VALUES (?, ?) ''',
-                       (base_url, robots_txt))
-
-        conn.commit()
-
-        print(f'|- Successfully added robots.txt of {base_url} to the database.')
-
-    except Exception as e:
-        print(f'|- Error adding robots.txt of {base_url}  to the database: {e}')
