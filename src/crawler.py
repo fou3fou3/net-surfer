@@ -60,12 +60,12 @@ class Crawler:
                             url = f"{parsed_page_url.scheme}://{parsed_page_url.netloc}/{url}"
 
                         page_urls.append(url)
-                        print(f'\t|- Fetched {url}')
+
 
                 else:
                     page_urls.append(url)
-                    print(f'\t|- Fetched {url}')
 
+        print(f'\t|- Fetched {len(page_urls)} urls')
         return page_urls, page_text, soup.title.string, words
 
     async def filter_child_urls(self, urls: list[str], rp: RobotFileParser) -> list[str]:
@@ -95,7 +95,7 @@ class Crawler:
             crawled_urls = get_all_crawled_urls()
 
             if page_url in crawled_urls:
-                raise Exception('Url has been crawled')
+                raise Exception('URL has been crawled')
 
             async with session.get(page_url, headers={'User-Agent': self.user_agent}) as resp:
                 if resp.status == 200:
