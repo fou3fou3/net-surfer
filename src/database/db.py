@@ -25,15 +25,29 @@ async def add_words_to_db(conn: Connection, page_url: str, words: list[tuple[str
     try:
         cursor = conn.cursor()
 
-        cursor.executemany(
-            ''' INSERT INTO word_frequencies (page_url, word, frequency) VALUES (?, ?, ?) ''',
-	        [(page_url, word, freq) for word, freq in words])
+        for word, freq in words:
+            try:
+                # Try to update the frequency if the record exists
+                cursor.execute(
+                    '''UPDATE word_frequencies SET frequency = frequency + ? 
+                       WHERE page_url = ? AND word = ?''',
+                    (freq, page_url, word)
+                )
+
+                if cursor.rowcount == 0:
+                    # If no rows were updated, insert the new word with its frequency
+                    cursor.execute(
+                        '''INSERT INTO word_frequencies (page_url, word, frequency) 
+                           VALUES (?, ?, ?)''',
+                        (page_url, word, freq)
+                    )
+            except Exception as e:
+                print(f'|- Error updating word frequency: {e}')
 
         conn.commit()
 
     except Exception as e:
         print(f'|- Error adding word to the database: {e}')
-
 
 async def fetch_robots_txt(conn: Connection, base_url: str) -> str | None:
     try:
