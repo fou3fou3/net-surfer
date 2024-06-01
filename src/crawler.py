@@ -47,6 +47,7 @@ class Crawler:
 	async def scrape_page_data(self, html_content: bytes, parsed_page_url: ParseResult) -> tuple[list[str], str, str | None, list[tuple[str, int]]]:
 		soup = BeautifulSoup(html_content, 'html.parser')
 		page_text = re.sub(r'\s+', ' ', soup.body.get_text(separator=' ')).strip()
+		page_title = soup.title.string
 
 		words = [word for word in word_tokenize(page_text) if word.isalnum() and word.lower() not in self.stop_words]
 		words = [(word.lower(), freq) for word, freq in Counter(words).items()]
@@ -71,7 +72,7 @@ class Crawler:
 				else:
 					page_urls.append(url)
 
-		return page_urls, page_text, soup.title.string, words
+		return page_urls, page_text, (page_title if page_title else ''), words
 
 
 	async def filter_child_urls(self, urls: list[str], rp: RobotFileParser) -> list[str]:
@@ -117,7 +118,7 @@ class Crawler:
 						if not base_url_robots:
 							async with session.get(f'{base_url}/robots.txt') as robots_resp:
 								base_url_robots = await robots_resp.text()
-								add_robots(base_url, str(base_url_robots))
+								add_robots(base_url, base_url_robots)
 
 						rp.parse(base_url_robots.splitlines())
 
@@ -144,9 +145,9 @@ class Crawler:
 					print(f'|- Problem crawling through {page_url}, {resp.status}\n')
 
 		except requests.exceptions.RequestException as e:
-			print(f'|- There was an error sending the request: {e}\n')
+			print(f'|- {page_url} There was an error sending the request: {e}\n')
 		except Exception as e:
-			print(f'|- There was an error handling the request: {e}\n')
+			print(f'|- {page_url} There was an error handling the request: {e}\n')
 
 
 	async def crawl_pages(self) -> None:
@@ -158,6 +159,7 @@ class Crawler:
 					tasks.append(asyncio.create_task(self.crawl_page(url_data['url'], url_data['parent_url'], session)))
 				await asyncio.gather(*tasks)
 
+			await session.close()
 			frontier = await fetch_from_frontier(num_urls=self.page_per_time)
 
 
