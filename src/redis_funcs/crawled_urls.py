@@ -6,7 +6,7 @@ def add_crawled_url(url: str, list_name: str = 'crawled_urls'):
 		conn = redis.Redis(host='localhost', port=6379, db=0)
 		conn.lpush(list_name, url)
 	except Exception as e:
-		print(f'There was an error adding the crawled url : {e}')
+		print(f'\tThere was an error adding the crawled url : {e}')
 
 
 def get_all_crawled_urls(list_name: str = 'crawled_urls') -> list[str]:
@@ -23,4 +23,4 @@ def get_all_crawled_urls(list_name: str = 'crawled_urls') -> list[str]:
 		return urls
 
 	except Exception as e:
-		print(f'There was an error fetching the crawled urls list: {e}')
+		print(f'\tThere was an error fetching the crawled urls list: {e}')
